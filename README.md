@@ -7,3 +7,7 @@
 This build is a fully custom 6 DOF robot arm designed with custom BLDC motors actuators and a combination of absolute and incremental magnetic encoders.
 
 Everything was coded in C++ for compatibility with an Arduino Mega 2560 board.
+
+Incremental encoders were designed using KY-035 Hall Effect modules and a ring of alternating polarity magnets integrated into the rotating joint. This method leads to a functional resolution of approx. 4000 steps/rotation.
+
+The design/layout of the joints and arm use a sphereical wrist, primarily used to simplify the inverse kinematics but also has the added benifit of creating channels for wires to pass through without being seen. The inverse kinematic equations have been incorperated into inverse_kinematics.ino.
