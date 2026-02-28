@@ -2,75 +2,76 @@
 
 > ⚠️ **Work In Progress** — Active development ongoing.
 
-A fully custom 6 degree-of-freedom articulated robot arm designed from scratch, featuring custom BLDC actuators, cycloidal gearbox reduction, and custom incremental magnetic encoding. All structural components are 3D-printed with Design for Additive Manufacturing (DfAM) principles in mind.
+A 6 degree-of-freedom articulated robot arm built entirely from scratch — custom actuators, custom gearboxes, and custom encoders. The project spans mechanical design, firmware, and simulation, with every major subsystem designed and iterated in-house.
 
 ---
 
 ## Goals
 
-1. **Precise positional control** of the end-effector across the full workspace.
-2. **Repeatable motion** with minimal deviation between repetitions.
+1. Achieve **precise positional control** of the end-effector throughout the full reachable workspace.
+2. Produce **repeatable, consistent motion** with minimal deviation between repeated trajectories.
 
 ---
 
 ## Key Features
 
-- **Custom BLDC Actuators** — Chosen for their superior size-to-torque ratio and low cost compared to other high-torque alternatives.
-- **14:1 Cycloidal Gearbox** — Custom-designed gearbox (27 mm height) that reduces backlash and increases output torque in a compact form factor. Brass bushings around roller pins minimize PLA-on-PLA friction.
-- **Spherical-Wrist Configuration** — Joint configuration chosen to simplify inverse kinematic equations.
-- **Dual Encoder Strategy** — Hybrid use of custom incremental encoders (KY-035 Hall-effect modules) and AS5600 absolute encoders, selected per joint type.
-- **Dual-Bearing Elbow Joints** — Each elbow joint is supported by bearings on both sides to balance load and improve actuator efficiency.
-- **Inverse Kinematics on Arduino** — IK equations derived from DH parameters and implemented in C++ directly on the Elegoo Mega 2560 R3, with all reachable solutions tested against joint constraints.
-- **DfAM-First Construction** — All custom parts are PLA-printed with ≥3 mm wall thickness, M3 fasteners throughout, and no adhesives to enable modular part replacement.
+- **BLDC Motors** — High torque-to-size ratio with lower cost than comparable servo alternatives.
+- **Custom 14:1 Cycloidal Gearbox** — Reduces backlash and multiplies output torque in a 27 mm tall package. Brass bushings on roller pins cut down friction between moving PLA surfaces.
+- **Spherical-Wrist Configuration** — Simplifies the inverse kinematic equations by decoupling positional and orientational DOFs.
+- **Hybrid Encoding** — Custom incremental encoders on wrist/rotation joints; AS5600 absolute encoders on elbow joints.
+- **On-board IK Solver** — Closed-form inverse kinematics derived from DH parameters and executed in C++ directly on the microcontroller.
+- **DfAM Construction** — All structural parts are FDM-printed in PLA with ≥3 mm wall thickness. M3 fasteners are used universally and adhesives are avoided entirely, so individual parts can be swapped without affecting the rest of the assembly.
 
 ---
 
 ## Mechanical Design
 
-All rotating components are outfitted with appropriate thrust or radial bearings, and threaded inserts are used at all repeated-disassembly interfaces. Tapered pins are used to fix small electrical components such as encoder boards, offering customizable clearances without adhesives.
+Each elbow joint is supported by bearings on both sides, distributing load symmetrically so the actuator only needs to drive rotation rather than resist bending moments. Small components like encoder boards are secured with tapered pins, which provide a repeatable, adhesive-free mount that can be adjusted to meet tight clearances.
 
-The motor-to-gearbox interface uses a hex adapter system, decoupling the motor and gearbox as independent assemblies to simplify overall robot assembly and maintenance. Tolerances for interference fits were iterated through physical testing to achieve rigid, precise placement of bearings and pins.
+The motor connects to the gearbox through a hex adapter, intentionally treating the two as independent modules. This simplifies both assembly and future maintenance — the motor or gearbox can be removed without disturbing the other.
 
 ---
 
 ## Inverse Kinematics
 
-DH (Denavit-Hartenberg) parameters were derived directly from the SolidWorks assembly for each joint. These parameters were used to calculate closed-form IK equations for positional end-effector control. MATLAB's `RigidBodyTree`, Simscape, and Simulink Multibody were used to simulate and validate motion before deployment.
+DH parameters were extracted directly from the SolidWorks assembly and used to derive closed-form IK equations for positional end-effector control. The equations were first validated in MATLAB using `RigidBodyTree`, Simscape, and Simulink Multibody before being ported to C++ for on-board execution.
 
-The IK solver is implemented in C++ on the microcontroller, evaluating all valid IK solutions and checking each against joint travel constraints at runtime.
+At runtime, the solver evaluates all valid IK solutions for a target position and filters them against each joint's physical travel limits to determine which configurations are actually reachable.
 
 ---
 
 ## Magnetic Encoding
 
-Two encoder types are used depending on joint type:
+Two encoder types are used depending on joint requirements:
 
-| Joint Type | Encoder Type | Sensor |
+| Joint Type | Encoder | Interface |
 |---|---|---|
-| Elbow joints | Absolute | AS5600 (I²C) |
-| Wrist / rotation joints | Custom Incremental | KY-035 Hall-effect |
+| Elbow joints | AS5600 absolute encoder | I²C |
+| Wrist / rotation joints | Custom incremental encoder | Analog |
 
-### Incremental Encoder Complexity
+### How the Incremental Encoder Works
 
-The custom incremental encoders are one of the more nuanced subsystems in this project. Each encoder uses **two KY-035 linear Hall-effect sensors** reading against a ring of **28 alternating-polarity magnets** embedded in the rotating element.
+Each custom incremental encoder uses two KY-035 linear Hall-effect sensors reading against a ring of 28 alternating-polarity magnets bonded into the rotating element.
 
-**How it works:** As the joint rotates, each magnet alternation produces a sinusoidal analog signal on each sensor. With two sensors offset from each other, the pair generates a **quadrature-like signal** — analogous to a two-channel optical encoder — allowing both position counting and **direction detection** based on which sensor leads the other.
+The two sensors are physically positioned **90° out of phase** relative to the magnet ring. As the joint rotates, each sensor produces a continuously varying analog voltage in response to the alternating magnetic field — effectively two sine waves offset by a quarter period. By monitoring how both signals change simultaneously, the firmware can determine **both the magnitude and direction** of rotation: if sensor A leads sensor B, the joint is moving in one direction; if B leads A, it's moving in the other.
 
-**Resolution trade-offs:** The theoretical resolution is:
+**Resolution:** Each magnet transition can theoretically be interpolated up to **1,024 steps**, giving a maximum theoretical resolution of:
 
-$$\text{Steps} = \text{Poles} \times \text{Gear Ratio} \times \text{Interpolation Factor} = 14{,}366 \text{ steps (theoretical)}$$
+\[
+28 \text{ magnets} \times 1024 \text{ steps/magnet} = 28{,}672 \text{ steps/revolution (theoretical)}
+\]
 
-However, in practice only **~1,000 steps** are reliably usable due to analog noise, magnet spacing tolerances, and Hall sensor sensitivity limits at speed.
+In practice, analog noise and real-world sensor sensitivity limit reliable interpolation to far fewer usable steps per magnet, bringing the effective resolution down significantly from the theoretical ceiling.
 
-**Homing:** Because incremental encoders have no absolute position reference, a **limit switch** is incorporated into each joint. The switch detects a machined notch in the rotating element, triggering a homing routine on startup to establish the zero-origin before any motion commands are executed.
+**Homing:** Since incremental encoders track *relative* position with no absolute reference, a limit switch is integrated into each joint. On startup, the joint sweeps until the switch detects a notch machined into the rotating element, establishing a repeatable zero-origin before any motion commands run.
 
 ---
 
 ## Electronics
 
-- **Microcontroller:** Elegoo Mega 2560 R3 (Arduino Mega-compatible) — selected for its additional analog input pins required by the custom Hall-effect encoders.
-- **Wiring:** Wires are soldered directly to encoder module pads where clearances are tight. Wire management channels are designed into the chassis to route all wiring cleanly.
-- **Connectors:** Custom-length 3-pin JST connectors are used throughout to allow easy assembly and disassembly of modular joints.
+- **Microcontroller:** Elegoo Mega 2560 R3 — Arduino Mega-compatible with enough analog input pins to support the multiple Hall-effect encoder channels.
+- **Wiring:** Directly soldered to encoder pads where connector clearance isn't feasible. Wire management channels are built into the chassis to keep routing clean and strain-free.
+- **Connectors:** Custom-length 3-pin JST connectors used throughout for fast, reliable joint-level assembly and disassembly.
 
 ---
 
@@ -81,11 +82,11 @@ However, in practice only **~1,000 steps** are reliably usable due to analog noi
 | Firmware | C++ (Arduino / Elegoo Mega 2560) |
 | CAD | SolidWorks |
 | Simulation | MATLAB, Simscape, Simulink Multibody |
-| Mechanical | PLA (FDM), M3 hardware, bearings, brass bushings |
+| Mechanical | PLA (FDM), M3 hardware, thrust & radial bearings, brass bushings |
 
 ---
 
-## Status
+## Project Status
 
 | Subsystem | Status |
 |---|---|
