@@ -102,4 +102,4 @@ In practice, analog noise and real-world sensor sensitivity limit reliable inter
 ## Author
 
 **Austin Li**<br>
-[LinkedIn](https://www.linkedin.com) · a564li@uwaterloo.ca
+[LinkedIn](https://www.linkedin.com/in/austin-c-li/) · a564li@uwaterloo.ca
