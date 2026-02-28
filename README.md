@@ -1,6 +1,6 @@
 # 6-DOF Articulated Robot Arm
 
-> ⚠️ **Work In Progress** — Active development ongoing.
+> **Work In Progress**
 
 A 6 degree-of-freedom articulated robot arm built entirely from scratch — custom actuators, custom gearboxes, and custom encoders. The project spans mechanical design, firmware, and simulation, with every major subsystem designed and iterated in-house.
 
