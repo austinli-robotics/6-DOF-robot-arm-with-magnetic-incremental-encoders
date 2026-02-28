@@ -46,7 +46,7 @@ Two encoder types are used depending on joint requirements:
 
 | Joint Type | Encoder | Interface |
 |---|---|---|
-| Elbow joints | AS5600 absolute encoder | I²C |
+| Elbow joints | AS5600 absolute encoder | Analog |
 | Wrist / rotation joints | Custom incremental encoder | Analog |
 
 ### How the Incremental Encoder Works
